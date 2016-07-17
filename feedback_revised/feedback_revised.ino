@@ -165,7 +165,7 @@ void optimize(long increment)
       while(voltage >= previousVoltage) 
       {
         previousVoltage = voltage;
-        zMoveRel(axisY, increment);
+        zMoveRel(axisY, (-1)*increment);
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
       }
