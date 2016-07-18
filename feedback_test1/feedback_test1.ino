@@ -44,8 +44,8 @@ float umResolution = 0.047625;
 //Period of feedback iterations
 const int interval = 5000;
 
-int dLay = 75;   //time between incremental movement and photodiode voltage read
-int iter8 = 100;   //number of reads the photodiode voltage is averaged over
+int dLay = 1000;   //time between incremental movement and photodiode voltage read
+int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
 //On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
@@ -80,8 +80,8 @@ void loop()
   if((currentMillis - previousMillis >= interval) && (analogRead(pinMPPT) < 1010))
   {   
     previousMillis = currentMillis;
-    optimize(um(40));
-    optimize(um(2));
+    optimize(um(75));
+    optimize(um(10));
   }
 }
 
