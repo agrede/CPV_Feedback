@@ -3,6 +3,7 @@
 #include <SoftwareSerial.h>
 
 int pinMPPT = 0;   //Analog pin used to read voltage across MPPT load resistor
+int pinPyro = 1;  // Analog pin for pyranometer
 int voltage = 0;   //value read from MPPT
 int previousVoltage = 0;  //MPPT value from previous iteration
 int offsetX = 0;    //tracking the starting and current absolute positions of the stages
@@ -69,6 +70,10 @@ void loop()
     else if (serialCom == "start")
     {
       enable = true;
+    }
+    else if(serialCom == "pyro")
+    {
+      Serial.println(readAnalog(pinPyro, 500));
     }
   }
   
