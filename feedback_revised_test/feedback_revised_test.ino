@@ -48,7 +48,7 @@ void setup()
   Serial.begin(9600);
   rs232.begin(115200);
   //pinMode(interruptPin, INPUT_PULLUP);
-  /attachInterrupt(digitalPinToInterrupt(interruptPin), zStop, FALLING);
+  //attachInterrupt(digitalPinToInterrupt(interruptPin), zStop, FALLING);
   //analogReference(EXTERNAL);
   delay(200);
   rs232.println("/renumber");
@@ -61,7 +61,7 @@ void loop()
 {
   if(Serial.available() > 0)
   {
-    serialCom = Serial.readStringUntil('\n')
+    serialCom = Serial.readStringUntil('\n');
     if (serialCom == "stop")
     {
       enable = false;
@@ -76,11 +76,8 @@ void loop()
   if((currentMillis - previousMillis >= interval) && (enable == true))
   {   
     previousMillis = currentMillis;
-    //optimize(axisX, um(50));  
-    //optimize(axisY, um(50));
     optimize(axisX, um(10));
-    optimize(axisY, um(10));  
-    //optimize(um(10));    
+    optimize(axisY, um(10));      
   }
 }
 
