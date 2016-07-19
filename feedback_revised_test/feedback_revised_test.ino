@@ -25,6 +25,7 @@ String Stop = "stop";
 String SetMaxspeed = "set maxspeed";
 String GetPos = "get pos";
 String comm;
+String serialCom;
 
 //Period of feedback iterations
 const int interval = 2500;
@@ -32,11 +33,13 @@ const int interval = 2500;
 int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
+boolean enable = true;
+
 //On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
 int TXpin = 4;
 
-int interruptPin = 2;
+//int interruptPin = 2;
 
 SoftwareSerial rs232(RXpin, TXpin);   //RX, TX
 
@@ -44,8 +47,8 @@ void setup()
 {
   Serial.begin(9600);
   rs232.begin(115200);
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), zStop, FALLING);
+  //pinMode(interruptPin, INPUT_PULLUP);
+  /attachInterrupt(digitalPinToInterrupt(interruptPin), zStop, FALLING);
   //analogReference(EXTERNAL);
   delay(200);
   rs232.println("/renumber");
@@ -56,8 +59,21 @@ void setup()
 
 void loop()
 {
+  if(Serial.available() > 0)
+  {
+    serialCom = Serial.readStringUntil('\n')
+    if (serialCom == "stop")
+    {
+      enable = false;
+    }
+    else if (serialCom == "start")
+    {
+      enable = true;
+    }
+  }
+  
   currentMillis = millis();
-  if((currentMillis - previousMillis >= interval) && (analogRead(pinMPPT) < 1010))
+  if((currentMillis - previousMillis >= interval) && (enable == true))
   {   
     previousMillis = currentMillis;
     //optimize(axisX, um(50));  
@@ -70,7 +86,7 @@ void loop()
 
 void zStop()
 {
-  rs232.println("/stop");
+  enable = !enable;
 }
 
 void zMove(int axis, long pos)
