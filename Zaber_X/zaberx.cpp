@@ -11,6 +11,7 @@ double q[] = { 0,  0.132,  0.264,  0.397,  0.529,  0.662,  0.795,  0.928,  1.06,
 4.86, 5.04, 5.21, 5.39, 5.57, 5.76, 5.96 };
 
 
+
 int readAnalog(int analogPin, int iterations)
 {
 	long volTemp = 0;
@@ -36,6 +37,20 @@ long um(float umValue)
 	return dataValue;
 }
 
+long stepsD(float degr)
+{
+	long stepValue;
+	stepValue = degr / resolutionDeg;
+	return stepValue;
+}
+
+long stepsR(float radis)
+{
+	long stepValue;
+	stepValue = radis / resolutionRad;
+	return stepValue;
+}
+
 double interp1(double input)
 {
 	double out;
@@ -47,3 +62,4 @@ double interp1(double input)
 	out = q[i - 1] + ((input - p[i - 1]) / (p[i] - p[i - 1])) * (q[i] - q[i - 1]);
 	return out;
 }
+

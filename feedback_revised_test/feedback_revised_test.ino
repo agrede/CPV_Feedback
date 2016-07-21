@@ -2,13 +2,13 @@
 
 #include <SoftwareSerial.h>
 
-int pinMPPT = 0;   //Analog pin used to read voltage across MPPT load resistor
+int pinMPPT = 0;   //Analog pin used to read voltage from transimpedance amplifier
 int voltage = 0;   //value read from MPPT
 int previousVoltage = 0;  //MPPT value from previous iteration
-int offsetX = 0;    //tracking the starting and current absolute positions of the stages
-int offsetY = 0;
-int posX = 0;
-int posY = 0;
+long offsetX = 0;    //tracking the starting and current absolute positions of the stages
+long offsetY = 0;
+long posX = 0;
+long posY = 0;
 
 unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
@@ -32,7 +32,6 @@ const int interval = 2500;
 int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
-boolean enable = true;
 
 //On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
@@ -46,12 +45,9 @@ void setup()
 {
   Serial.begin(9600);
   rs232.begin(115200);
-  //pinMode(interruptPin, INPUT_PULLUP);
-  //attachInterrupt(digitalPinToInterrupt(interruptPin), zStop, FALLING);
-  //analogReference(EXTERNAL);
-  delay(200);
+  delay(1000);
   rs232.println("/renumber");
-  delay(2000);
+  delay(1000);
   rs232.println("/set maxspeed 200000");
   delay(1000);
 }
@@ -59,17 +55,12 @@ void setup()
 void loop()
 {  
   currentMillis = millis();
-  if((currentMillis - previousMillis >= interval) && (enable == true))
+  if(currentMillis - previousMillis >= interval)
   {   
     previousMillis = currentMillis;
     optimize(axisX, um(10));
     optimize(axisY, um(10));      
   }
-}
-
-void zStop()
-{
-  enable = !enable;
 }
 
 void zMove(int axis, long pos)
