@@ -3,6 +3,7 @@
 #include <SoftwareSerial.h>
 
 int pinMPPT = 0;   //Analog pin used to read voltage from transimpedance amplifier
+int pinPyro = 1;
 int voltage = 0;   //value read from MPPT
 int previousVoltage = 0;  //MPPT value from previous iteration
 long offsetX = 0;    //tracking the starting and current absolute positions of the stages
@@ -25,6 +26,7 @@ String Stop = "stop";
 String SetMaxspeed = "set maxspeed";
 String GetPos = "get pos";
 String comm;
+String serialComm;
 
 //Period of feedback iterations
 const int interval = 2500;
@@ -32,6 +34,7 @@ const int interval = 2500;
 int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
+boolean enable = true;
 
 //On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
@@ -54,8 +57,31 @@ void setup()
 
 void loop()
 {  
+  if(Serial.available > 0)
+  {
+    serialComm = Serial.readStringUntil('\n');
+    if(serialComm == "stop")
+    {
+      enable = false;
+    }
+    else if(serialComm == "start")
+    {
+      enable = true;
+    }
+    else if(serialComm == "meas")
+    {      
+      Serial.println(readAnalog(pinPyro, iter8));
+    }
+    else if(serialComm == "getpos")
+    {
+      Serial.print(posX);
+      Serial.print(',');
+      Serial.println(posY);
+    }
+  }
+
   currentMillis = millis();
-  if(currentMillis - previousMillis >= interval)
+  if((currentMillis - previousMillis >= interval) && (enable == true))
   {   
     previousMillis = currentMillis;
     optimize(axisX, um(10));
