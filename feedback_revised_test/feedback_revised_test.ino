@@ -57,7 +57,7 @@ void setup()
 
 void loop()
 {  
-  if(Serial.available > 0)
+  if(Serial.available() > 0)
   {
     serialComm = Serial.readStringUntil('\n');
     if(serialComm == "stop")
@@ -127,17 +127,19 @@ void optimize(int axis, long increment)
   // Get starting conditions before optimizing
   voltage = readAnalog(pinMPPT, iter8); 
   
-  Serial.println(voltage);
+  //Serial.println(voltage);
 
   // Move one increment in + direction and get new voltage and position
   zMoveRel(axis, increment);  
   previousVoltage = voltage;
   delay(dLay);
   voltage = readAnalog(pinMPPT, iter8); 
-  
+
+  /*
   Serial.print(axis);
   Serial.println(" + initial");
   Serial.println(voltage);
+  */
   
   // Start optimizing along axis
   if(voltage > previousVoltage)         
@@ -148,10 +150,12 @@ void optimize(int axis, long increment)
         zMoveRel(axis, increment);        
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
-        
+
+        /*
         Serial.print(axis);
         Serial.println(" +");
         Serial.println(voltage);
+        */
       }
       zMoveRel(axis, (-1)*increment);
    }
@@ -161,19 +165,25 @@ void optimize(int axis, long increment)
       zMoveRel(axis, (-2)*increment);      
       delay(dLay);
       voltage = readAnalog(pinMPPT, iter8); 
+
+      /*
       Serial.print(axis);
       Serial.println(" 2-");
       Serial.println(voltage);
+      */
+      
       while(voltage > previousVoltage)
       {
         previousVoltage = voltage;
         zMoveRel(axis, (-1)*increment);        
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
-        
+
+        /*
         Serial.print(axis);
         Serial.println(" -");
         Serial.println(voltage);
+        */
       }
       zMoveRel(axis, increment);
    }     
