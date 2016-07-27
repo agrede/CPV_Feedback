@@ -1,8 +1,20 @@
+/*   Feedback-based tracking for prototype solar concentrator
+ *   
+ *   Michael Lipski
+ *   AOPL
+ *   Summer 2016
+ *   
+ *   Controls the crossed Zaber X-LRM200A linear stages.  Makes small changes in X and Y while measuring the change in voltage between movements.
+ *   Attempts to maximize the voltage tied to pinMPPT.
+ *   
+ */
+
 #include <zaberx.h>
 
 #include <SoftwareSerial.h>
 
 int pinMPPT = 0;   //Analog pin used to read voltage across MPPT load resistor
+int pinPyro = 1;
 int voltage = 0;   //value read from MPPT
 int previousVoltage = 0;  //MPPT value from previous iteration
 int offsetX = 0;    //tracking the starting and current absolute positions of the stages
@@ -25,18 +37,19 @@ String Stop = "stop";
 String SetMaxspeed = "set maxspeed";
 String GetPos = "get pos";
 String comm;
+String serialComm;
 
 //Period of feedback iterations
-const int interval = 1000;
+const int interval = 2500;
 
-int dLay = 1000;   //time between incremental movement and photodiode voltage read
+int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
 //On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
 int TXpin = 4;
 
-int interruptPin = 2;
+boolean enable = true;
 
 SoftwareSerial rs232(RXpin, TXpin);   //RX, TX
 
@@ -44,8 +57,6 @@ void setup()
 {
   Serial.begin(9600);
   rs232.begin(115200);
-  pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), zStop, FALLING);
   delay(200);
   rs232.println("/renumber");
   delay(2000);
@@ -55,21 +66,38 @@ void setup()
 
 void loop()
 {
-  currentMillis = millis();
-  if((currentMillis - previousMillis >= interval) && (analogRead(pinMPPT) < 1010))
-  {   
-    previousMillis = currentMillis;
-    optimize(um(200));
-    Serial.println(voltage);
-    //optimize(um(10));
-    //Serial.println(voltage);
+  // Serial commands to start/stop optimization, measure pyranometer voltage, and get the current position of the stages 
+  if(Serial.available() > 0)
+  {
+    serialComm = Serial.readStringUntil('\n');
+    if(serialComm == "stop")
+    {
+      enable = false;
+    }
+    else if(serialComm == "start")
+    {
+      enable = true;
+    }
+    else if(serialComm == "meas")
+    {      
+      Serial.println(readAnalog(pinPyro, iter8));
+    }
+    else if(serialComm == "getpos")
+    {
+      Serial.print(posX);
+      Serial.print(',');
+      Serial.println(posY);
+    }
   }
 
-}
-
-void zStop()
-{
-  rs232.println("/stop");
+  // Running optimization function along X and Y
+  currentMillis = millis();
+  if((currentMillis - previousMillis >= interval) && (enable == true))
+  {   
+    previousMillis = currentMillis;
+    optimize(axisX, um(10));
+    optimize(axisY, um(10));        
+  }
 }
 
 void zMove(int axis, long pos)
@@ -104,74 +132,69 @@ void zMoveRel(int axis, long dist)
   rs232.println(command);
 }
 
-
-void optimize(long increment)
+void optimize(int axis, long increment)
 { 
-  //Get starting conditions before optimizing
+  // Get starting conditions before optimizing
   voltage = readAnalog(pinMPPT, iter8); 
+  
+  //Serial.println(voltage);
 
-  //Move one increment in +x and get new voltage and position
-  zMoveRel(axisX, increment);
+  // Move one increment in + direction and get new voltage and position
+  zMoveRel(axis, increment);  
   previousVoltage = voltage;
   delay(dLay);
   voltage = readAnalog(pinMPPT, iter8); 
+
+  /*
+  Serial.print(axis);
+  Serial.println(" + initial");
+  Serial.println(voltage);
+  */
   
-  //Start optimizing along X axis
+  // Start optimizing along axis
   if(voltage > previousVoltage)         
   {
      while(voltage > previousVoltage)
       {        
         previousVoltage = voltage;
-        zMoveRel(axisX, increment);
+        zMoveRel(axis, increment);        
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
+
+        /*
+        Serial.print(axis);
+        Serial.println(" +");
+        Serial.println(voltage);
+        */
       }
-    }
-    else if(voltage <= previousVoltage)
-    {
+      zMoveRel(axis, (-1)*increment);
+   }
+   else if(voltage < previousVoltage)
+   {
       previousVoltage = voltage;
-      zMoveRel(axisX, (-2)*increment);
+      zMoveRel(axis, (-2)*increment);      
       delay(dLay);
       voltage = readAnalog(pinMPPT, iter8); 
-      while(voltage >= previousVoltage)
-      {
-        previousVoltage = voltage;
-        zMoveRel(axisX, (-1)*increment);
-        delay(dLay);
-        voltage = readAnalog(pinMPPT, iter8); 
-      }
-    }
 
-  //Start optimizing along Y axis
-  voltage = readAnalog(pinMPPT, iter8); 
-  previousVoltage = voltage;  
-  zMoveRel(axisY, increment);
-  delay(dLay);
-  voltage = readAnalog(pinMPPT, iter8);
-  
-  if(voltage > previousVoltage)           
-  {
+      /*
+      Serial.print(axis);
+      Serial.println(" 2-");
+      Serial.println(voltage);
+      */
+      
       while(voltage > previousVoltage)
       {
-        previousVoltage = voltage;      
-        zMoveRel(axisY, increment);
-        delay(dLay);
-        voltage = readAnalog(pinMPPT, iter8); 
-      }
-    }
-    else if(voltage <= previousVoltage)
-    {
-      previousVoltage = voltage;
-      zMoveRel(axisY, (-2)*increment);
-      delay(dLay);
-      voltage = readAnalog(pinMPPT, iter8); 
-      while(voltage >= previousVoltage) 
-      {
         previousVoltage = voltage;
-        zMoveRel(axisY, (-1)*increment);
+        zMoveRel(axis, (-1)*increment);        
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
+
+        /*
+        Serial.print(axis);
+        Serial.println(" -");
+        Serial.println(voltage);
+        */
       }
-    }      
-    
+      zMoveRel(axis, increment);
+   }     
 }

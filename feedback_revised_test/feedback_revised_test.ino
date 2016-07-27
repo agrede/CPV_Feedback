@@ -1,3 +1,16 @@
+/*   Feedback-based tracking for prototype solar concentrator
+ *    Test Sketch
+ *   
+ *   Michael Lipski
+ *   AOPL
+ *   Summer 2016
+ *   
+ *   Controls the crossed Zaber X-LRM200A linear stages.  Makes small changes in X and Y while measuring the change in voltage between movements.
+ *   Attempts to maximize the voltage tied to pinMPPT.
+ *   Contains the most recent changes.
+ *   
+ */
+
 #include <zaberx.h>
 
 #include <SoftwareSerial.h>
@@ -120,7 +133,6 @@ void zMoveRel(int axis, long dist)
   }  
   rs232.println(command);
 }
-
 
 void optimize(int axis, long increment)
 { 
