@@ -11,6 +11,8 @@
 
 #include <zaberx.h>
 
+#include <Wire.h>
+
 #include <SoftwareSerial.h>
 
 int pinMPPT = 0;   //Analog pin used to read voltage across MPPT load resistor
@@ -36,18 +38,28 @@ String moveRelY = "/2 move rel ";
 String Stop = "stop";
 String SetMaxspeed = "set maxspeed";
 String GetPos = "get pos";
-String comm;
-String serialComm;
 
-//Period of feedback iterations
+String serialComm;
+String comm1;
+String comm2;
+
+// Period of feedback iterations
 const int interval = 2500;
 
 int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
-//On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
+// On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
 int TXpin = 4;
+
+// Reset pins for digital potentiometers
+int resetCPV = 26;
+int resetPV = 27;
+
+unsigned int dpData;
+
+byte dpCommand[2];    // [ MSByte, LSByte ]
 
 boolean enable = true;
 
@@ -69,7 +81,7 @@ void loop()
   // Serial commands to start/stop optimization, measure pyranometer voltage, and get the current position of the stages 
   if(Serial.available() > 0)
   {
-    serialComm = Serial.readStringUntil('\n');
+    serialComm = Serial.readStringUntil('\n');    
     if(serialComm == "stop")
     {
       enable = false;
@@ -87,6 +99,64 @@ void loop()
       Serial.print(posX);
       Serial.print(',');
       Serial.println(posY);
+    }
+    else if(serialComm == "setpv")
+    {
+      while(Serial.available() == 0)
+      {
+        delay(5);
+      }
+      comm1 = Serial.readStringUntil('\n');
+      dpData = comm1.toInt();
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      dpCommand[0] = (1024 + dpData) >> 8;
+      dpCommand[1] = dpData & 255;
+  
+      Wire.beginTransmission(0x2C);
+      Wire.write(dpCommand, 2);
+      Wire.endTransmission();
+    }
+    else if(serialComm == "setcpv")
+    {
+      while(Serial.available() == 0)
+      {
+        delay(5);
+      }
+      comm1 = Serial.readStringUntil('\n');
+      dpData = comm2.toInt();
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      dpCommand[0] = (1024 + dpData) >> 8;
+      dpCommand[1] = dpData & 255;
+
+      Wire.beginTransmission(0x2F);
+      Wire.write(dpCommand, 2);
+      Wire.endTransmission(); 
+    }
+    else if(serialComm == "cpvsmu")
+    {
+      digitalWrite(cpvSMU, HIGH);
+      delay(5);
+      digitalWrite(cpvSMU, LOW);
+    }
+    else if(serialComm == "cpvtia")
+    {
+      digitalWrite(cpvTIA, HIGH);
+      delay(5);
+      digitalWrite(cpvTIA, LOW);
+    }
+    else if(serialComm == "pvsmu")
+    {
+      digitalWrite(pvSMU, HIGH);
+      delay(5);
+      digitalWrite(pvSMU, LOW);
+    }
+    else if(serialComm == "pvtia")
+    {
+      digitalWrite(pvTIA, HIGH);
+      delay(5);
+      digitalWrite(pvTIA, LOW);
     }
   }
 

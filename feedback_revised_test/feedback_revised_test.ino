@@ -72,7 +72,7 @@ void loop()
 {  
   if(Serial.available() > 0)
   {
-    serialComm = Serial.readStringUntil('\n');
+    serialComm = Serial.readStringUntil('\n');    
     if(serialComm == "stop")
     {
       enable = false;
@@ -91,7 +91,65 @@ void loop()
       Serial.print(',');
       Serial.println(posY);
     }
-  }
+    else if(serialComm == "setpv")
+    {
+      while(Serial.available() == 0)
+      {
+        delay(5);
+      }
+      comm1 = Serial.readStringUntil('\n');
+      dpData = comm1.toInt();
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      dpCommand[0] = (1024 + dpData) >> 8;
+      dpCommand[1] = dpData & 255;
+  
+      Wire.beginTransmission(0x2C);
+      Wire.write(dpCommand, 2);
+      Wire.endTransmission();
+    }
+    else if(serialComm == "setcpv")
+    {
+      while(Serial.available() == 0)
+      {
+        delay(5);
+      }
+      comm1 = Serial.readStringUntil('\n');
+      dpData = comm2.toInt();
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      dpCommand[0] = (1024 + dpData) >> 8;
+      dpCommand[1] = dpData & 255;
+
+      Wire.beginTransmission(0x2F);
+      Wire.write(dpCommand, 2);
+      Wire.endTransmission(); 
+    }
+    else if(serialComm == "cpvsmu")
+    {
+      digitalWrite(cpvSMU, HIGH);
+      delay(5);
+      digitalWrite(cpvSMU, LOW);
+    }
+    else if(serialComm == "cpvtia")
+    {
+      digitalWrite(cpvTIA, HIGH);
+      delay(5);
+      digitalWrite(cpvTIA, LOW);
+    }
+    else if(serialComm == "pvsmu")
+    {
+      digitalWrite(pvSMU, HIGH);
+      delay(5);
+      digitalWrite(pvSMU, LOW);
+    }
+    else if(serialComm == "pvtia")
+    {
+      digitalWrite(pvTIA, HIGH);
+      delay(5);
+      digitalWrite(pvTIA, LOW);
+    }
+  }  
 
   currentMillis = millis();
   if((currentMillis - previousMillis >= interval) && (enable == true))
