@@ -1,4 +1,5 @@
 /*   Feedback-based tracking for prototype solar concentrator
+ *    Using Zaber Binary protocol
  *   
  *   Michael Lipski
  *   AOPL
@@ -19,25 +20,34 @@ int pinMPPT = 0;   //Analog pin used to read voltage across MPPT load resistor
 int pinPyro = 1;
 int voltage = 0;   //value read from MPPT
 int previousVoltage = 0;  //MPPT value from previous iteration
-int offsetX = 0;    //tracking the starting and current absolute positions of the stages
-int offsetY = 0;
-int posX = 0;
-int posY = 0;
 
-unsigned long previousMillis = 0;
-unsigned long currentMillis = 0;
+const unsigned long offsetX = 2148185;    //tracking the starting and current absolute positions of the stages
+const unsigned long offsetY = 2104209;
+unsigned long posX = 0;
+unsigned long posY = 0;
 
-// Define common command numbers
+// Variables for Zaber binary communication
+byte command[6];
+byte reply[6];
+float outData;
+long replyData;
+
+// Stage IDs
 int axisX = 1;
 int axisY = 2;
-String Home = "home";
-String moveAbsX = "/1 move abs ";
-String moveAbsY = "/2 move abs ";
-String moveRelX = "/1 move rel ";
-String moveRelY = "/2 move rel ";
-String Stop = "stop";
-String SetMaxspeed = "set maxspeed";
-String GetPos = "get pos";
+
+// Define common command numbers
+int homer = 1;      // home the stage
+int renumber = 2;   // renumber all devices in the chain
+int moveAbs = 20;   // move absolute
+int moveRel = 21;   // move relative
+int stopMove = 23;  // Stop
+int speedSet = 42;    // Speed to target = 0.00219727(V) degrees/sec (assuming 64 microstep resolution)
+int getPos = 60;      // Query the device for its position
+int storePos = 16;    // Position can be stored in registers 0 to 15
+int returnPos = 17;   // returns the value (in microsteps) of the position stored in the indicated register
+int move2Pos = 18;    // move to the position stored in the indicated register
+int reset = 0;        // akin to toggling device power
 
 String serialComm;
 String comm1;
@@ -48,6 +58,9 @@ const int interval = 2500;
 
 int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
+
+unsigned long previousMillis = 0;
+unsigned long currentMillis = 0;
 
 // On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
@@ -63,23 +76,32 @@ int cpvTIA = 25;
 int pvSMU = 28;
 int pvTIA = 29;
 
-unsigned int dpData;
+unsigned int dpData;      // 10-bit value to be sent to the desired digital potentiometer
 
-byte dpCommand[2];    // [ MSByte, LSByte ]
+byte dpCommand[2];    // [ MSByte , LSByte ]
 
-boolean enable = true;
+boolean enable = true;    // Controls whether or not the closed-loop optimization routine is running
 
 SoftwareSerial rs232(RXpin, TXpin);   //RX, TX
 
 void setup()
 {
+  // Start the Arduino hardware serial port at 9600 baud
   Serial.begin(9600);
+  
+  // Sets the stages to use binary protocol
   rs232.begin(115200);
+  delay(1000);  
+  rs232.println("/tools setcomm 9600 1");
+  delay(500);
+  Serial.println(rs232.readStringUntil('\n'));
+  delay(100);
+  rs232.end();
   delay(200);
-  rs232.println("/renumber");
+
+  //Start software serial connection with Zaber stages
+  rs232.begin(9600);
   delay(2000);
-  rs232.println("/set maxspeed 200000");
-  delay(1000);
 }
 
 void loop()
@@ -102,6 +124,8 @@ void loop()
     }
     else if(serialComm == "getpos")
     {
+      posX = sendCommand(axisX, getPos, 0);
+      posY = sendCommand(axisY, getPos, 0);
       Serial.print(posX);
       Serial.print(',');
       Serial.println(posY);
@@ -176,36 +200,85 @@ void loop()
   }
 }
 
-void zMove(int axis, long pos)
+long sendCommand(int device, int com, long data)
 {
-  String command;
-  if(axis == 1)
-  {
-    posX = pos;
-    command = moveAbsX + posX;    
-  }
-  else if(axis == 2)
-  {
-    posY = pos;
-    command = moveAbsY + posY;
-  }  
-  rs232.println(command);
-}
+   unsigned long data2;
+   unsigned long temp;
+   unsigned long repData;
+   long replyNeg;
+   float replyFloat;
+   byte dumper[1];
+   
+   // Building the six command bytes
+   command[0] = byte(device);
+   command[1] = byte(com);
+   if(data < 0)
+   {
+     data2 = data + quad;
+   }
+   else
+   {
+     data2 = data;
+   }
+   temp = data2 / cubed;
+   command[5] = byte(temp);
+   data2 -= (cubed * temp);
+   temp = data2 / squared;
+   command[4] = byte(temp);
+   data2 -= (squared * temp);
+   temp = data2 / 256;
+   command[3] = byte(temp);
+   data2 -= (256 * data2);
+   command[2] = byte(data2);
+   
+   // Clearing serial buffer
+   while(rs232.available() > 0)
+   {
+     rs232.readBytes(dumper, 1);
+   }
+   
+   // Sending command to stage(s)
+   rs232.write(command, 6);
 
-void zMoveRel(int axis, long dist)
-{
-  String command;
-  if(axis == 1)
-  {
-    posX += dist;
-    command = moveRelX + dist;    
-  }
-  else if(axis == 2)
-  {
-    posY += dist;
-    command = moveRelY + dist;
-  }  
-  rs232.println(command);
+   delay(20);
+   
+   // Reading device reply
+   if(rs232.available() > 0)
+   {
+     rs232.readBytes(reply, 6);
+   }
+   
+   replyFloat = (cubed * float(reply[5])) + (squared * float(reply[4])) + (256 * float(reply[3])) + float(reply[2]); 
+   repData = long(replyFloat);
+   
+   if(reply[5] > 127)
+   {
+     replyNeg = repData - quad;
+   }
+   
+   // Printing full reply bytes as well as reply data in decimal 
+   Serial.print(reply[0]);
+   Serial.print(' ');
+   Serial.print(reply[1]);
+   Serial.print(' ');
+   Serial.print(reply[2]);
+   Serial.print(' ');
+   Serial.print(reply[3]);
+   Serial.print(' ');
+   Serial.print(reply[4]);
+   Serial.print(' ');
+   Serial.println(reply[5]);
+   Serial.print("\tData:");
+   if(reply[5] > 127)
+   {
+     Serial.println(replyNeg);
+     return replyNeg;
+   }
+   else
+   {
+     Serial.println(repData);  
+     return repData;
+   }    
 }
 
 void optimize(int axis, long increment)
@@ -216,7 +289,7 @@ void optimize(int axis, long increment)
   //Serial.println(voltage);
 
   // Move one increment in + direction and get new voltage and position
-  zMoveRel(axis, increment);  
+  replyData = sendCommand(axis, moveRel, increment);
   previousVoltage = voltage;
   delay(dLay);
   voltage = readAnalog(pinMPPT, iter8); 
@@ -233,7 +306,7 @@ void optimize(int axis, long increment)
      while(voltage > previousVoltage)
       {        
         previousVoltage = voltage;
-        zMoveRel(axis, increment);        
+        replyData = sendCommand(axis, moveRel, increment);        
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
 
@@ -243,12 +316,12 @@ void optimize(int axis, long increment)
         Serial.println(voltage);
         */
       }
-      zMoveRel(axis, (-1)*increment);
+      replyData = sendCommand(axis, moveRel, (-1)*increment);
    }
    else if(voltage < previousVoltage)
    {
       previousVoltage = voltage;
-      zMoveRel(axis, (-2)*increment);      
+      replyData = sendCommand(axis, moveRel, (-2)*increment);    
       delay(dLay);
       voltage = readAnalog(pinMPPT, iter8); 
 
@@ -261,7 +334,7 @@ void optimize(int axis, long increment)
       while(voltage > previousVoltage)
       {
         previousVoltage = voltage;
-        zMoveRel(axis, (-1)*increment);        
+        replyData = sendCommand(axis, moveRel, (-1)*increment);        
         delay(dLay);
         voltage = readAnalog(pinMPPT, iter8); 
 
@@ -271,6 +344,6 @@ void optimize(int axis, long increment)
         Serial.println(voltage);
         */
       }
-      zMoveRel(axis, increment);
+      replyData = sendCommand(axis, moveRel, increment);
    }     
 }

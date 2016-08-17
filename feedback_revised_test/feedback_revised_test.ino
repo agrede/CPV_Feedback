@@ -47,11 +47,25 @@ const int interval = 2500;
 int dLay = 500;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
-boolean enable = true;
-
-//On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
+// On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 int RXpin = 3;
 int TXpin = 4;
+
+// Reset pins for digital potentiometers
+int resetCPV = 26;
+int resetPV = 27;
+
+// Pins for controlling latching relays
+int cpvSMU = 24;
+int cpvTIA = 25;
+int pvSMU = 28;
+int pvTIA = 29;
+
+unsigned int dpData;
+
+byte dpCommand[2];    // [ MSByte, LSByte ]
+
+boolean enable = true;
 
 //int interruptPin = 2;
 
