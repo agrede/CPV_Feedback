@@ -87,6 +87,27 @@ void setup()
 {
   // Start the Arduino hardware serial port at 9600 baud
   Serial.begin(9600);
+  Wire.begin();
+
+    // Memory efficient version of pin initialization, for Mega2560 only
+  DDRA |= B11111100;    // Sets Mega 2560 pins 24-29 as outputs
+  PORTA = B00110000;    // Sets 26, 27 HIGH and 22-25, 28, 29 LOW
+  
+  /*
+  // Initializes the proper pins as outputs and ensures that they are at logic low
+  pinMode(resetCPV, OUTPUT);
+  pinMode(resetPV, OUTPUT);
+  pinMode(cpvSMU, OUTPUT);
+  pinMode(cpvTIA, OUTPUT);
+  pinMode(pvSMU, OUTPUT);
+  pinMode(pvTIA, OUTPUT);
+  digitalWrite(resetCPV, HIGH);
+  digitalWrite(resetPV, HIGH);
+  digitalWrite(cpvSMU, LOW);
+  digitalWrite(cpvTIA, LOW);
+  digitalWrite(pvSMU, LOW);
+  digitalWrite(pvTIA, LOW);
+  */
   
   // Sets the stages to use binary protocol
   rs232.begin(115200);
