@@ -85,6 +85,7 @@ void setup()
 
 void loop()
 {  
+  // Serial commands to start/stop optimization, measure pyranometer voltage, and get the current position of the stages 
   if(Serial.available() > 0)
   {
     serialComm = Serial.readStringUntil('\n');    
@@ -102,43 +103,11 @@ void loop()
     }
     else if(serialComm == "getpos")
     {
+      posX = sendCommand(axisX, getPos, 0);
+      posY = sendCommand(axisY, getPos, 0);
       Serial.print(posX);
       Serial.print(',');
       Serial.println(posY);
-    }
-    else if(serialComm == "setpv")
-    {
-      while(Serial.available() == 0)
-      {
-        delay(5);
-      }
-      comm1 = Serial.readStringUntil('\n');
-      dpData = comm1.toInt();
-
-      // Generating two bytes to be sent to the digipot shift register, MSByte first
-      dpCommand[0] = (1024 + dpData) >> 8;
-      dpCommand[1] = dpData & 255;
-  
-      Wire.beginTransmission(0x2C);
-      Wire.write(dpCommand, 2);
-      Wire.endTransmission();
-    }
-    else if(serialComm == "setcpv")
-    {
-      while(Serial.available() == 0)
-      {
-        delay(5);
-      }
-      comm1 = Serial.readStringUntil('\n');
-      dpData = comm1.toInt();
-
-      // Generating two bytes to be sent to the digipot shift register, MSByte first
-      dpCommand[0] = (1024 + dpData) >> 8;
-      dpCommand[1] = dpData & 255;
-
-      Wire.beginTransmission(0x2F);
-      Wire.write(dpCommand, 2);
-      Wire.endTransmission(); 
     }
     else if(serialComm == "cpvsmu")
     {
@@ -164,7 +133,34 @@ void loop()
       delay(5);
       digitalWrite(pvTIA, LOW);
     }
-  }  
+    
+    if(serialComm.substring(0, 5) == "setpv")
+    {
+      comm1 = serialComm.substring(6);
+      dpData = comm1.toInt();
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      dpCommand[0] = (1024 + dpData) >> 8;
+      dpCommand[1] = dpData & 255;
+  
+      Wire.beginTransmission(0x2C);
+      Wire.write(dpCommand, 2);
+      Wire.endTransmission();
+    }
+    if(serialComm.substring(0, 6) == "setcpv")
+    {
+      comm1 = serialComm.substring(7);
+      dpData = comm1.toInt();
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      dpCommand[0] = (1024 + dpData) >> 8;
+      dpCommand[1] = dpData & 255;
+
+      Wire.beginTransmission(0x2F);
+      Wire.write(dpCommand, 2);
+      Wire.endTransmission(); 
+    }
+  }
 
   currentMillis = millis();
   if((currentMillis - previousMillis >= interval) && (enable == true))
