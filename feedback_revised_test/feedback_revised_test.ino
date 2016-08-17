@@ -38,8 +38,9 @@ String moveRelY = "/2 move rel ";
 String Stop = "stop";
 String SetMaxspeed = "set maxspeed";
 String GetPos = "get pos";
-String comm;
+
 String serialComm;
+String comm1;
 
 //Period of feedback iterations
 const int interval = 2500;
@@ -129,7 +130,7 @@ void loop()
         delay(5);
       }
       comm1 = Serial.readStringUntil('\n');
-      dpData = comm2.toInt();
+      dpData = comm1.toInt();
 
       // Generating two bytes to be sent to the digipot shift register, MSByte first
       dpCommand[0] = (1024 + dpData) >> 8;
