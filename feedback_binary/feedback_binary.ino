@@ -201,7 +201,7 @@ void loop()
     {
       Serial.println(readAnalog(pinCPV, iter8));
     }
-    else if(serialComm == "getposz")
+    else if(serialComm == "getposx")
     {
       posX = sendCommand(portA, axisX, getPos, 0);
       posY = sendCommand(portA, axisY, getPos, 0);

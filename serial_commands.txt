@@ -1,0 +1,17 @@
+stopcpv : turns off closed-loop CPV tracking
+startcpv : turns on closed-loop CPV tracking
+stopdni : turns off photoresistor-based DNI pyranometer tracking
+startdni : turns on photoresistor-based DNI pyranometer tracking
+measpyr : reads voltage from bare pyranometer TIA and prints it to serial monitor
+measdni : reads voltage from DNI pyranometer TIA and prints it to serial monitor
+measpv : reads voltage from bare cell TIA and prints it to serial monitor
+meascpv : reads voltage from concentrator cell TIA and prints it to serial monitor
+getposz : gets absolute position from linear stages and prints it to serial monitor (X, Y)
+getpost : gets absolute position from rotational stages and prints it to serial monitor (azimuth, zenith)
+getldr : reads voltages from photoresistor and prints them to serial monitor (topR, topL, bottomR, bottomL)
+cpvsmu : routes the concentrator cell to the SMU
+cpvtia : routes the concentrator cell to the TIA
+pvsmu : routes the bare cell to the SMU
+pvtia : routes the bare cell to the TIA
+setpv x : sends the value of x to the digipot controlling gain for the bare cell TIA
+setcpv x : sends the value of x to the digipot controlling gain for the concentrator cell TIA
