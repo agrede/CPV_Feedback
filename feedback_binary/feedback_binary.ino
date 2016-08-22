@@ -66,12 +66,12 @@ int reset = 0;        // akin to toggling device power
 String serialComm;
 String comm1;
 
-int dLay = 500;   //time between incremental movement and photodiode voltage read
+int dLay = 100;   //time between incremental movement and photodiode voltage read
 int iter8 = 100;   //number of reads the photodiode voltage is averaged over
 
 // Period of feedback iterations
-const int intervalCPV = 2500;
-const int intervalDNI = 2500;
+const int intervalCPV = 5000;
+const int intervalDNI = 5000;
 
 unsigned long millisCPV = 0;
 unsigned long millisDNI = 0;

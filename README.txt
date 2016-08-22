@@ -13,5 +13,8 @@ Before compiling, copy Zaber_X folder into your Arduino/libraries folder.
 * * Sketch Descriptions	* *
 feedback_binary: Main closed-loop tracking sketch, using Zaber Binary protocol
 feedback_revised: Main closed-loop tracking sketch, using Zaber ASCII protocol
+feedback_simple: Closed-loop tracking for the concentrator stages only
 feedback_test: Active test sketch for closed-loop tracking
 sector_search: More advanced closed-loop tracking approach, still under development
+
+feedback_binary and feedback_revised control both the linear stages and the rotational stages controlling the DNI pyranometer using the external, photodiode-based tracker.  Text commands can be sent to the Arduino to control various functions and are documented in serial_commands.txt.  feedback_simple is just the closed-loop tracking for the concentrator cell.
