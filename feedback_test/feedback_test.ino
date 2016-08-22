@@ -23,14 +23,22 @@ int previousVoltage = 0;  //MPPT value from previous iteration
 
 const unsigned long offsetX = 2148185;    //tracking the starting and current absolute positions of the stages
 const unsigned long offsetY = 2104209;
-unsigned long posX = 0;
-unsigned long posY = 0;
+
+unsigned long posX = 0;    // Tracks the absolute position of the X-axis stage (in microsteps)
+unsigned long posY = 0;    // Tracks the absolute position of the Y-axis stage (in microsteps)
+
+unsigned long azimPos = 0;   // Variable which tracks the absolute position of the azimuth stage (in microsteps)
+unsigned long zeniPos = 0;   // Variable which tracks the absolute position of the elevation stage (in microsteps)
 
 // Variables for Zaber binary communication
 byte command[6];
 byte reply[6];
 float outData;
 long replyData;
+
+// Port IDs
+int portA = 1;
+int portB = 2;
 
 // Linear Stage IDs
 int axisX = 1;
@@ -107,7 +115,7 @@ byte dpCommand[2];    // [ MSByte , LSByte ]
 boolean enableCPV = true;    // Controls whether or not the CPV closed-loop optimization routine is running
 boolean enableDNI = true;    // Controls whether or not the photoresistor-based DNI pyranometer tracking is running
 
-SoftwareSerial rs232(RXpin, TXpin);   //RX, TX
+SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
 
 SoftwareSerial rs232b(RXpin2, TXpin2);
 
@@ -138,17 +146,17 @@ void setup()
   */
   
   // Sets the stages to use binary protocol
-  rs232.begin(115200);
+  rs232a.begin(115200);
   delay(1000);  
-  rs232.println("/tools setcomm 9600 1");
+  rs232a.println("/tools setcomm 9600 1");
   delay(500);
-  Serial.println(rs232.readStringUntil('\n'));
+  Serial.println(rs232a.readStringUntil('\n'));
   delay(100);
-  rs232.end();
+  rs232a.end();
   delay(200);
 
   //Start software serial connection with Zaber stages
-  rs232.begin(9600);
+  rs232a.begin(9600);
   rs232b.begin(9600);
   delay(2000);
 }
@@ -161,15 +169,15 @@ void loop()
     serialComm = Serial.readStringUntil('\n');    
     if(serialComm == "stopcpv")
     {
-       enableCPV = false;
+      enableCPV = false;
     }
     else if(serialComm == "startcpv")
     {
-       enableCPV = true;
+      enableCPV = true;
     }
     else if(serialComm == "stopdni")
     {
-       enableDNI = false;
+      enableDNI = false;
     }
     else if(serialComm == "startdni")
     {
@@ -191,13 +199,21 @@ void loop()
     {
       Serial.println(readAnalog(pinCPV, iter8));
     }
-    else if(serialComm == "getpos")
+    else if(serialComm == "getposz")
     {
-      posX = sendCommand(axisX, getPos, 0);
-      posY = sendCommand(axisY, getPos, 0);
+      posX = sendCommand(portA, axisX, getPos, 0);
+      posY = sendCommand(portA, axisY, getPos, 0);
       Serial.print(posX);
       Serial.print(',');
       Serial.println(posY);
+    }
+    else if(serialComm == "getpost")
+    {
+      azimPos = sendCommand(portB, azimuth, getPos, 0);
+      zeniPos = sendCommand(portB, zenith, getPos, 0);
+      Serial.print(azimPos);
+      Serial.print(',');
+      Serial.println(zeniPos);
     }
     else if(serialComm == "getldr")
     {
@@ -279,7 +295,7 @@ void loop()
   }
 }
 
-long sendCommand(int device, int com, long data)
+long sendCommand(int port, int device, int com, long data)
 {
    unsigned long data2;
    unsigned long temp;
@@ -311,22 +327,43 @@ long sendCommand(int device, int com, long data)
    command[2] = byte(data2);
    
    // Clearing serial buffer
-   while(rs232.available() > 0)
+   if(port == 1)
    {
-     rs232.readBytes(dumper, 1);
-   }
+     while(rs232a.available() > 0)
+     {
+       rs232a.readBytes(dumper, 1);
+     }
    
-   // Sending command to stage(s)
-   rs232.write(command, 6);
+     // Sending command to stage(s)
+     rs232a.write(command, 6);
 
-   delay(20);
+     delay(20);
    
-   // Reading device reply
-   if(rs232.available() > 0)
-   {
-     rs232.readBytes(reply, 6);
+     // Reading device reply
+     if(rs232a.available() > 0)
+     {
+       rs232a.readBytes(reply, 6);
+     }   
    }
+   else if(port == 2)
+   {
+     while(rs232b.available() > 0)
+     {
+       rs232b.readBytes(dumper, 1);
+     }
    
+     // Sending command to stage(s)
+     rs232b.write(command, 6);
+
+     delay(20);
+   
+     // Reading device reply
+     if(rs232b.available() > 0)
+     {
+       rs232b.readBytes(reply, 6);
+     }   
+   }
+
    replyFloat = (cubed * float(reply[5])) + (squared * float(reply[4])) + (256 * float(reply[3])) + float(reply[2]); 
    repData = long(replyFloat);
    
@@ -368,7 +405,7 @@ void optimize(int axis, long increment)
   //Serial.println(voltage);
 
   // Move one increment in + direction and get new voltage and position
-  replyData = sendCommand(axis, moveRel, increment);
+  replyData = sendCommand(portA, axis, moveRel, increment);
   previousVoltage = voltage;
   delay(dLay);
   voltage = readAnalog(pinCPV, iter8); 
@@ -385,7 +422,7 @@ void optimize(int axis, long increment)
      while(voltage > previousVoltage)
       {        
         previousVoltage = voltage;
-        replyData = sendCommand(axis, moveRel, increment);        
+        replyData = sendCommand(portA, axis, moveRel, increment);        
         delay(dLay);
         voltage = readAnalog(pinCPV, iter8);  
 
@@ -395,12 +432,12 @@ void optimize(int axis, long increment)
         Serial.println(voltage);
         */
       }
-      replyData = sendCommand(axis, moveRel, (-1)*increment);
+      replyData = sendCommand(portA, axis, moveRel, (-1)*increment);
    }
    else if(voltage < previousVoltage)
    {
       previousVoltage = voltage;
-      replyData = sendCommand(axis, moveRel, (-2)*increment);    
+      replyData = sendCommand(portA, axis, moveRel, (-2)*increment);    
       delay(dLay);
       voltage = readAnalog(pinCPV, iter8);  
 
@@ -413,7 +450,7 @@ void optimize(int axis, long increment)
       while(voltage > previousVoltage)
       {
         previousVoltage = voltage;
-        replyData = sendCommand(axis, moveRel, (-1)*increment);        
+        replyData = sendCommand(portA, axis, moveRel, (-1)*increment);        
         delay(dLay);
         voltage = readAnalog(pinCPV, iter8); 
 
@@ -423,7 +460,7 @@ void optimize(int axis, long increment)
         Serial.println(voltage);
         */
       }
-      replyData = sendCommand(axis, moveRel, increment);
+      replyData = sendCommand(portA, axis, moveRel, increment);
    }     
 }
 
@@ -453,19 +490,19 @@ void quadrant(long increment)
 
   if(top > bottom)
   {
-    replyData = sendCommand(zenith, moveRel, (-1)*increment);
+    replyData = sendCommand(portB, zenith, moveRel, (-1)*increment);
   }
   else if(top < bottom)
   {
-    replyData = sendCommand(zenith, moveRel, increment);
+    replyData = sendCommand(portB, zenith, moveRel, increment);
   }
 
   if(right > left)
   {
-    replyData = sendCommand(azimuth, moveRel, increment);
+    replyData = sendCommand(portB, azimuth, moveRel, increment);
   }
   else if(right < left)
   {
-    replyData = sendCommand(azimuth, moveRel, (-1)*increment);
+    replyData = sendCommand(portB, azimuth, moveRel, (-1)*increment);
   }  
 }
