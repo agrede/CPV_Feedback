@@ -93,11 +93,11 @@ int bottomL = 3;    // bottom left photoresistor
 
 // On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 // Linear Stages Serial comm.
-int RXpin = 2;      
+int RXpin = 10;      
 int TXpin = 3;
 
 // Rotational Stages Serial comm.
-int RXpin2 = 4;
+int RXpin2 = 11;
 int TXpin2 = 5;
 
 // Reset pins for digital potentiometers
@@ -373,7 +373,8 @@ long sendCommand(int port, int device, int com, long data)
    {
      replyNeg = repData - quad;
    }
-   
+
+   /*
    // Printing full reply bytes as well as reply data in decimal 
    Serial.print(reply[0]);
    Serial.print(' ');
@@ -387,14 +388,15 @@ long sendCommand(int port, int device, int com, long data)
    Serial.print(' ');
    Serial.println(reply[5]);
    Serial.print("\tData:");
+   */
    if(reply[5] > 127)
    {
-     Serial.println(replyNeg);
+     //Serial.println(replyNeg);
      return replyNeg;
    }
    else
    {
-     Serial.println(repData);  
+     //Serial.println(repData);  
      return repData;
    }    
 }
@@ -474,6 +476,7 @@ void quadrant(long increment)
   int vBR = readAnalog(bottomR, iter8);    // voltage from bottom right photoresistor
   int vBL = readAnalog(bottomL, iter8);    // voltage from bottom left photoresistor
 
+  /*
   // Print 10-bit values read by the ADC from photoresistor voltage divider
   Serial.print("Top Right: ");
   Serial.print(vTR);
@@ -483,6 +486,7 @@ void quadrant(long increment)
   Serial.print(vBR);
   Serial.print("\tBottom Left: ");
   Serial.println(vBL);
+  */
 
   // Find average values
   int top = (vTR + vTL) / 2;      // average of top right and top left voltages

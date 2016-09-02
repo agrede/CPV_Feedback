@@ -96,11 +96,11 @@ int bottomL = 3;    // bottom left photoresistor
 
 // On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 // Linear Stages Serial comm.
-int RXpin = 2;      
+int RXpin = 10;      
 int TXpin = 3;
 
 // Rotational Stages Serial comm.
-int RXpin2 = 4;
+int RXpin2 = 11;
 int TXpin2 = 5;
 
 // Reset pins for digital potentiometers

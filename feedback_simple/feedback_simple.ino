@@ -5,7 +5,7 @@
  *   AOPL
  *   Summer 2016
  *   
- *   Barebones closed-loop tracking algorithm.  Controls the crossed Zaber X-LRM200A linear stages.  Makes small changes in 
+ *   Barebones closed-loop tracking algorithm.  No serial commands.  Controls the crossed Zaber X-LRM200A linear stages.  Makes small changes in 
  *   X and Y while measuring the change in voltage between movements.  Attempts to maximize the voltage tied to pinMPPT.   
  */
  
@@ -71,7 +71,7 @@ int pinCPV = 11;   // Concentrator cell
 
 // On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 // Linear Stages Serial comm.
-int RXpin = 2;      
+int RXpin = 10;      
 int TXpin = 3;
 
 SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
@@ -86,7 +86,7 @@ void setup()
   delay(1000);  
   rs232a.println("/tools setcomm 9600 1");
   delay(500);
-  Serial.println(rs232a.readStringUntil('\n'));
+  //Serial.println(rs232a.readStringUntil('\n'));
   delay(100);
   rs232a.end();
   delay(200);
@@ -186,6 +186,7 @@ long sendCommand(int port, int device, int com, long data)
    }
    
    // Printing full reply bytes as well as reply data in decimal 
+   /*
    Serial.print(reply[0]);
    Serial.print(' ');
    Serial.print(reply[1]);
@@ -198,14 +199,15 @@ long sendCommand(int port, int device, int com, long data)
    Serial.print(' ');
    Serial.println(reply[5]);
    Serial.print("\tData:");
+   */
    if(reply[5] > 127)
    {
-     Serial.println(replyNeg);
+     //Serial.println(replyNeg);
      return replyNeg;
    }
    else
    {
-     Serial.println(repData);  
+     //Serial.println(repData);  
      return repData;
    }    
 }
