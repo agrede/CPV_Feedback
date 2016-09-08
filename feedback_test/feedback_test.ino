@@ -101,13 +101,17 @@ void setup()
   // Start the Arduino hardware serial port at 9600 baud
   Serial.begin(9600);
   Wire.begin();
-  
-  // Enable digipot wiper to be controlled over I2C
+
+  // Enable digipot wiper to be controlled over I2C & sets wiper to lowest resistance setting
   Wire.beginTransmission(0x2C);
   Wire.write(dpEnable, 2);
+  Wire.write(byte(4));    
+  Wire.write(byte(0));
   Wire.endTransmission();
   Wire.beginTransmission(0x2F);
   Wire.write(dpEnable, 2);
+  Wire.write(byte(4));
+  Wire.write(byte(0));
   Wire.endTransmission();
 
     // Memory efficient version of pin initialization, for Mega2560 only
