@@ -62,7 +62,10 @@ int dLay = 100;   //time between incremental movement and photodiode voltage rea
 int iter8 = 100;   //number of reads the photodiode voltage is averaged over
 
 // Period of feedback iterations
-const int intervalCPV = 5000;
+int intervalCPV = 5000;
+
+// Amount the stage is moved between voltage samples
+int increment = 10;
 
 unsigned long millisCPV = 0;
 unsigned long currentMillis = 0;
@@ -96,6 +99,7 @@ byte dpCommand[2];    // [ MSByte , LSByte ]
 byte dpEnable[2] = {7, 2};
 
 boolean enableCPV = true;    // Controls whether or not the CPV closed-loop optimization routine is running
+boolean logData = false;     // Controls whether or not data is constantly sent to serial monitor
 
 SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
 
@@ -166,13 +170,17 @@ void loop()
     {
       enableCPV = true;
     }
+    else if(serialComm == "dataon")
+    {
+      logData = true;
+    }
+    else if(serialComm == "dataoff")
+    {
+      logData = false;
+    }
     else if(serialComm == "measpyr")
     {      
       Serial.println(readAnalog(pinPyro, iter8));
-    }
-    else if(serialComm == "measdni")
-    {
-      Serial.println(readAnalog(pinDNI, iter8));
     }
     else if(serialComm == "measpv")
     {
@@ -189,24 +197,6 @@ void loop()
       Serial.print(posX);
       Serial.print(',');
       Serial.println(posY);
-    }
-    else if(serialComm == "getpost")
-    {
-      azimPos = sendCommand(portB, azimuth, getPos, 0);
-      zeniPos = sendCommand(portB, zenith, getPos, 0);
-      Serial.print(azimPos);
-      Serial.print(',');
-      Serial.println(zeniPos);
-    }
-    else if(serialComm == "getldr")
-    {
-      Serial.print(readAnalog(topR, iter8));
-      Serial.print(',');
-      Serial.print(readAnalog(topL, iter8));
-      Serial.print(',');
-      Serial.print(readAnalog(bottomR, iter8));
-      Serial.print(',');
-      Serial.println(readAnalog(bottomL, iter8));      
     }
     else if(serialComm == "cpvsmu")
     {
@@ -233,6 +223,16 @@ void loop()
       digitalWrite(pvTIA, LOW);
     }
     
+    if(serialComm.substring(0, 5) == "setdt")
+    {
+      comm1 = serialComm.substring(6);
+      intervalCPV = comm1.toInt();
+    }
+    if(serialComm.substring(0, 5) == "setdz")
+    {
+      comm1 = serialComm.substring(6);
+      increment = comm1.toInt();
+    }
     if(serialComm.substring(0, 5) == "setpv")
     {
       comm1 = serialComm.substring(6);
@@ -265,9 +265,31 @@ void loop()
   currentMillis = millis();
   if((currentMillis - millisCPV >= intervalCPV) && (enableCPV == true))
   {   
-    millisCPV = currentMillis;
-    optimize(axisX, um(10));
-    optimize(axisY, um(10));        
+    millisCPV = currentMillis;   
+
+    if(logData == true)
+    {
+      posX = sendCommand(portA, axisX, getPos, 0);
+      posY = sendCommand(portA, axisY, getPos, 0);
+      Serial.println("start");
+    }
+    
+    optimize(axisX, um(increment));
+    optimize(axisY, um(increment));   
+
+    if(logData == true)
+    {
+      int x1 = posX;
+      int y1 = posY;      
+      posX = sendCommand(portA, axisX, getPos, 0);
+      posY = sendCommand(portA, axisY, getPos, 0);
+      int dx = posX - x1;
+      int dy = posY - y1;
+      float d = sqrt(dx*dx - dy*dy);
+      Serial.print(d * umResolution);
+      Serial.println(" , um direct");
+      Serial.println("end");
+    }
   }
 }
 
@@ -320,8 +342,8 @@ long sendCommand(int port, int device, int com, long data)
      {
        rs232a.readBytes(reply, 6);
      }   
-   }
-   else if(port == 2)
+   }   
+   /*else if(port == 2)
    {
      while(rs232b.available() > 0)
      {
@@ -339,6 +361,7 @@ long sendCommand(int port, int device, int com, long data)
        rs232b.readBytes(reply, 6);
      }   
    }
+   */
 
    replyFloat = (cubed * float(reply[5])) + (squared * float(reply[4])) + (256 * float(reply[3])) + float(reply[2]); 
    repData = long(replyFloat);
@@ -377,22 +400,22 @@ long sendCommand(int port, int device, int com, long data)
 
 void optimize(int axis, long increment)
 { 
+  int moves = 0; 
   // Get starting conditions before optimizing
   voltage = readAnalog(pinCPV, iter8); 
   
-  //Serial.println(voltage);
+  if(logData == true)
+    Serial.println(voltage);
 
   // Move one increment in + direction and get new voltage and position
   replyData = sendCommand(portA, axis, moveRel, increment);
+  moves++;
   previousVoltage = voltage;
   delay(dLay);
-  voltage = readAnalog(pinCPV, iter8); 
+  voltage = readAnalog(pinCPV, iter8);
 
-  /*
-  Serial.print(axis);
-  Serial.println(" + initial");
-  Serial.println(voltage);
-  */
+  if(logData == true)
+    Serial.println(voltage); 
   
   // Start optimizing along axis
   if(voltage > previousVoltage)         
@@ -400,46 +423,55 @@ void optimize(int axis, long increment)
      while(voltage > previousVoltage)
       {        
         previousVoltage = voltage;
-        replyData = sendCommand(portA, axis, moveRel, increment);        
+        replyData = sendCommand(portA, axis, moveRel, increment);  
+        moves++;      
         delay(dLay);
         voltage = readAnalog(pinCPV, iter8);  
 
-        /*
-        Serial.print(axis);
-        Serial.println(" +");
-        Serial.println(voltage);
-        */
+        if(logData == true)
+          Serial.println(voltage);
       }
       replyData = sendCommand(portA, axis, moveRel, (-1)*increment);
+      moves++;
    }
    else if(voltage < previousVoltage)
    {
       previousVoltage = voltage;
-      replyData = sendCommand(portA, axis, moveRel, (-2)*increment);    
+      replyData = sendCommand(portA, axis, moveRel, (-2)*increment);  
+      moves += 2;  
       delay(dLay);
       voltage = readAnalog(pinCPV, iter8);  
 
-      /*
-      Serial.print(axis);
-      Serial.println(" 2-");
-      Serial.println(voltage);
-      */
+      if(logData == true)
+          Serial.println(voltage);
       
       while(voltage > previousVoltage)
       {
         previousVoltage = voltage;
-        replyData = sendCommand(portA, axis, moveRel, (-1)*increment);        
+        replyData = sendCommand(portA, axis, moveRel, (-1)*increment);    
+        moves++;    
         delay(dLay);
         voltage = readAnalog(pinCPV, iter8); 
 
-        /*
-        Serial.print(axis);
-        Serial.println(" -");
-        Serial.println(voltage);
-        */
+        if(logData == true)
+          Serial.println(voltage);
       }
       replyData = sendCommand(portA, axis, moveRel, increment);
-   }     
+      moves++;
+   }  
+   if(logData == true)
+   {
+     Serial.print(increment * moves);  
+     if(axis == axisX)
+     {
+       Serial.println(" , um y"); 
+     }
+     else if(axis == axisY)
+     {
+       Serial.println(" , um x"); 
+     }
+      
+   }
 }
 
 
