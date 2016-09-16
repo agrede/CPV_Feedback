@@ -14,3 +14,4 @@ setpv x : sends the value of x to the digipot controlling gain for the bare cell
 setcpv x : sends the value of x to the digipot controlling gain for the concentrator cell TIA
 setdt x : sets the delay between feedback iterations to x (ms)
 setdz x : sets the incremental movement distance between voltage samples to x (microns)
+setav x : sets the number of reads to average over for sampling equal to x

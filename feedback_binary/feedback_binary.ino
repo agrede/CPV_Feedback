@@ -59,7 +59,7 @@ String serialComm;
 String comm1;
 
 int dLay = 100;   //time between incremental movement and photodiode voltage read
-int iter8 = 100;   //number of reads the photodiode voltage is averaged over
+int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
 // Period of feedback iterations
 int intervalCPV = 5000;
@@ -88,10 +88,10 @@ int resetCPV = 26;
 int resetPV = 27;
 
 // Pins for controlling latching relays
-int cpvSMU = 25;
-int cpvTIA = 24;
-int pvSMU = 29;
-int pvTIA = 28;
+int cpvSMU = 24;
+int cpvTIA = 25;
+int pvSMU = 28;
+int pvTIA = 29;
 
 unsigned int dpData;      // 10-bit value to be sent to the desired digital potentiometer
 
@@ -232,6 +232,11 @@ void loop()
     {
       comm1 = serialComm.substring(6);
       increment = comm1.toInt();
+    }
+    if(serialComm.substring(0, 5) == "setav")
+    {
+      comm1 = serialComm.substring(6);
+      iter8 = comm1.toInt();
     }
     if(serialComm.substring(0, 5) == "setpv")
     {
