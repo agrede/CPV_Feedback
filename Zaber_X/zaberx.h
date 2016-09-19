@@ -22,6 +22,8 @@
 
 	long stepsR(float radis);
 
+	double interp(double input);
+
 	double interp1(double input);
 
 	double interp2(double input);
