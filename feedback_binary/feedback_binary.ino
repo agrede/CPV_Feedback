@@ -15,20 +15,15 @@
 
 #include <zaberx.h>
 
+#include <SPI.h>
+
+#include <SD.h>
+
 #include <Wire.h>
 
 #include <SoftwareSerial.h>
 
-int voltage = 0;   //value read from MPPT
-int previousVoltage = 0;  //MPPT value from previous iteration
-
-const unsigned long offsetX = 2148185;    //tracking the starting and current absolute positions of the stages
-const unsigned long offsetY = 2104209;
-
-unsigned long posX = 0;    // Tracks the absolute position of the X-axis stage (in microsteps)
-unsigned long posY = 0;    // Tracks the absolute position of the Y-axis stage (in microsteps)
-
-// Variables for Zaber binary communication
+//////////////////// ZABER STAGES VARIABLES  /////////////////////////////////////
 byte command[6];
 byte reply[6];
 float outData;
@@ -41,6 +36,12 @@ int portB = 2;
 // Linear Stage IDs
 int axisX = 1;
 int axisY = 2;
+
+const unsigned long offsetX = 2148185;    //tracking the starting and current absolute positions of the stages
+const unsigned long offsetY = 2104209;
+
+unsigned long posX = 0;    // Tracks the absolute position of the X-axis stage (in microsteps)
+unsigned long posY = 0;    // Tracks the absolute position of the Y-axis stage (in microsteps)
 
 // Define common command numbers
 int homer = 1;      // home the stage
@@ -58,6 +59,11 @@ int reset = 0;        // akin to toggling device power
 String serialComm;
 String comm1;
 
+//////////////////// FEEDBACK VARIABLES /////////////////////////////////////
+
+int voltage = 0;   //value read from MPPT
+int previousVoltage = 0;  //MPPT value from previous iteration
+
 int dLay = 100;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 
@@ -70,7 +76,10 @@ int increment = 10;
 unsigned long millisCPV = 0;
 unsigned long currentMillis = 0;
 
-// PIN ASSIGNMENTS
+float dx = 0;
+float dy = 0;
+
+/////////////// PIN ASSIGNMENTS///////////////////////////////////////////////////////
 
 // Transimpedance amplifier outputs
 int pinPyro = 8;   // Bare pyranometer
@@ -93,6 +102,15 @@ int cpvTIA = 25;
 int pvSMU = 28;
 int pvTIA = 29;
 
+///////////////////////// SHIELD VARIABLES ////////////////////////////////////////////
+
+const int chipSelect = 10;  // SD card shield
+
+File logSD;
+
+String headerSD = "dX , dY ,  dist. "; 
+String dataSD;
+
 unsigned int dpData;      // 10-bit value to be sent to the desired digital potentiometer
 
 byte dpCommand[2];    // [ MSByte , LSByte ]
@@ -102,6 +120,8 @@ boolean enableCPV = true;    // Controls whether or not the CPV closed-loop opti
 boolean logData = false;     // Controls whether or not data is constantly sent to serial monitor
 
 SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
+
+//////////////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
@@ -173,10 +193,25 @@ void loop()
     else if(serialComm == "dataon")
     {
       logData = true;
+      // create a new file
+      char filename[] = "CPVRun00.CSV";
+      for (uint8_t i = 0; i < 100; i++)
+      {
+        filename[6] = i/10 + '0';
+        filename[7] = i%10 + '0';
+        if (! SD.exists(filename)) 
+        {
+          // only open a new file if it doesn't exist
+          logSD = SD.open(filename, FILE_WRITE); 
+          break;  // leave the loop!
+        }
+      }
+      logSD.println(headerSD);
     }
     else if(serialComm == "dataoff")
     {
       logData = false;
+      logSD.close();
     }
     else if(serialComm == "measpyr")
     {      
@@ -270,14 +305,13 @@ void loop()
   currentMillis = millis();
   if((currentMillis - millisCPV >= intervalCPV) && (enableCPV == true))
   {   
-    millisCPV = currentMillis;   
-
-    if(logData == true)
-    {
-      posX = sendCommand(portA, axisX, getPos, 0);
-      posY = sendCommand(portA, axisY, getPos, 0);
-      Serial.println("start");
-    }
+    millisCPV = currentMillis;     
+    
+    posX = sendCommand(portA, axisX, getPos, 0);
+    posY = sendCommand(portA, axisY, getPos, 0);     
+    
+    dx = 0;
+    dy = 0;
     
     optimize(axisX, um(increment));
     optimize(axisY, um(increment));   
@@ -291,9 +325,11 @@ void loop()
       int dx = posX - x1;
       int dy = posY - y1;
       float d = sqrt(dx*dx - dy*dy);
-      Serial.print(d * umResolution);
-      Serial.println(" , um direct");
-      Serial.println("end");
+      logSD.print(dx);
+      logSD.print(" , ");
+      logSD.print(dy);
+      logSD.print(" , ");
+      logSD.println(d * umResolution);      
     }
   }
 }
@@ -463,19 +499,15 @@ void optimize(int axis, long increment)
       }
       replyData = sendCommand(portA, axis, moveRel, increment);
       moves++;
-   }  
-   if(logData == true)
+   }       
+   
+   if(axis == axisX)
    {
-     Serial.print(increment * moves);  
-     if(axis == axisX)
-     {
-       Serial.println(" , um y"); 
-     }
-     else if(axis == axisY)
-     {
-       Serial.println(" , um x"); 
-     }
-      
+     dx = increment * moves * umResolution;
+   }
+   else if(axis == axisY)
+   {
+     dy = increment * moves * umResolution; 
    }
 }
 
