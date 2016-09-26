@@ -1,7 +1,7 @@
 stopcpv : turns off closed-loop CPV tracking
 startcpv : turns on closed-loop CPV tracking
-dataon : turns on data stream to serial port
-dataoff : turns off data stream to serial port
+dataon : turns on datalogging to SD card
+dataoff : turns off datalogging to SD card
 measpyr : reads voltage from bare pyranometer TIA and prints it to serial monitor
 measpv : reads voltage from bare cell TIA and prints it to serial monitor
 meascpv : reads voltage from concentrator cell TIA and prints it to serial monitor

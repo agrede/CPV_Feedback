@@ -23,7 +23,8 @@
 
 #include <SoftwareSerial.h>
 
-//////////////////// ZABER STAGES VARIABLES  /////////////////////////////////////
+//////////////////// ZABER STAGES VARIABLES  //////////////////////////////////////////////////////////
+
 byte command[6];
 byte reply[6];
 float outData;
@@ -59,10 +60,12 @@ int reset = 0;        // akin to toggling device power
 String serialComm;
 String comm1;
 
-//////////////////// FEEDBACK VARIABLES /////////////////////////////////////
+//////////////////// FEEDBACK VARIABLES //////////////////////////////////////////////////////////
 
-int voltage = 0;   //value read from MPPT
-int previousVoltage = 0;  //MPPT value from previous iteration
+boolean enableCPV = true;    // Controls whether or not the CPV closed-loop optimization routine is running
+
+int voltage = 0;   //value read from transimpedance amp
+int previousVoltage = 0;  //trans amp value from previous iteration
 
 int dLay = 100;   //time between incremental movement and photodiode voltage read
 int iter8 = 500;   //number of reads the photodiode voltage is averaged over
@@ -70,16 +73,13 @@ int iter8 = 500;   //number of reads the photodiode voltage is averaged over
 // Period of feedback iterations
 int intervalCPV = 5000;
 
-// Amount the stage is moved between voltage samples
+// Amount the stage is moved between voltage samples (um)
 int increment = 10;
 
 unsigned long millisCPV = 0;
 unsigned long currentMillis = 0;
 
-float dx = 0;
-float dy = 0;
-
-/////////////// PIN ASSIGNMENTS///////////////////////////////////////////////////////
+/////////////// PIN ASSIGNMENTS//////////////////////////////////////////////////////////////////
 
 // Transimpedance amplifier outputs
 int pinPyro = 8;   // Bare pyranometer
@@ -89,7 +89,7 @@ int pinCPV = 11;   // Concentrator cell
 
 // On Mega, RX must be one of the following: pin 10-15, 50-53, A8-A15
 // Linear Stages Serial comm.
-int RXpin = 10;      
+int RXpin = 11;      
 int TXpin = 3;
 
 // Reset pins for digital potentiometers
@@ -102,26 +102,30 @@ int cpvTIA = 25;
 int pvSMU = 28;
 int pvTIA = 29;
 
-///////////////////////// SHIELD VARIABLES ////////////////////////////////////////////
+///////////////////////// SHIELD VARIABLES /////////////////////////////////////////////////////
+
+boolean logData = false;     // Controls whether or not data is constantly sent to serial monitor
 
 const int chipSelect = 10;  // SD card shield
 
 File logSD;
 
-String headerSD = "dX , dY ,  dist. "; 
+String headerSD = "  dX   ,   dY   ,   dist.  "; 
 String dataSD;
+
+float dx = 0;
+float dy = 0;
 
 unsigned int dpData;      // 10-bit value to be sent to the desired digital potentiometer
 
 byte dpCommand[2];    // [ MSByte , LSByte ]
 byte dpEnable[2] = {7, 2};
 
-boolean enableCPV = true;    // Controls whether or not the CPV closed-loop optimization routine is running
-boolean logData = false;     // Controls whether or not data is constantly sent to serial monitor
+/////////////////////// OBJECT DECLARATIONS //////////////////////////////////////////////////
 
 SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
 
-//////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
@@ -193,6 +197,7 @@ void loop()
     else if(serialComm == "dataon")
     {
       logData = true;
+      SD.begin(chipSelect);
       // create a new file
       char filename[] = "CPVRun00.CSV";
       for (uint8_t i = 0; i < 100; i++)
@@ -322,14 +327,16 @@ void loop()
       int y1 = posY;      
       posX = sendCommand(portA, axisX, getPos, 0);
       posY = sendCommand(portA, axisY, getPos, 0);
-      int dx = posX - x1;
-      int dy = posY - y1;
-      float d = sqrt(dx*dx - dy*dy);
-      logSD.print(dx);
-      logSD.print(" , ");
-      logSD.print(dy);
-      logSD.print(" , ");
-      logSD.println(d * umResolution);      
+      int x2 = posX - x1;
+      int y2 = posY - y1;
+      float d = sqrt(x2*x2 - y2*y2) * umResolution;
+
+      dataSD += String(dx);
+      dataSD += " , ";
+      dataSD += String(dy);
+      dataSD += " , ";
+      dataSD += String(d);
+      logSD.println(dataSD);      
     }
   }
 }
