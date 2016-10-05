@@ -6,11 +6,7 @@
  *   Summer 2016
  *   
  *   Controls the crossed Zaber X-LRM200A linear stages.  Makes small changes in X and Y while measuring the change in voltage between movements.
- *   Attempts to maximize the voltage tied to pinMPPT.
- *   
- *   Controls the Zaber T-RS60A rotational stages controlling the DNI pyranometer.  DNI pyranometer tracking uses external photoresistor voltage
- *   divider.
- *   
+ *   Attempts to maximize the voltage tied to pinMPPT.   
  */
 
 #include <zaberx.h>
@@ -20,6 +16,12 @@
 #include <SD.h>
 
 #include <Wire.h>
+
+#include "RTClib.h"
+
+#include <Adafruit_RGBLCDShield.h>
+
+#include <utility/Adafruit_MCP23017.h>
 
 #include <SoftwareSerial.h>
 
@@ -111,7 +113,6 @@ const int chipSelect = 10;  // SD card shield
 File logSD;
 
 String headerSD = "  dX   ,   dY   ,   dist.  "; 
-String dataSD;
 
 float dx = 0;
 float dy = 0;
@@ -198,8 +199,10 @@ void loop()
     {
       logData = true;
       SD.begin(chipSelect);
+      
       // create a new file
       char filename[] = "CPVRun00.CSV";
+      
       for (uint8_t i = 0; i < 100; i++)
       {
         filename[6] = i/10 + '0';
@@ -211,6 +214,12 @@ void loop()
           break;  // leave the loop!
         }
       }
+      
+      String timestamp;
+      
+      timestamp = String(now.month());
+      timestamp += '/' + String(now.day()) + '/' + String(now.year()) + '\t' + String(now.hour()) + ':' + String(now.minute()) + ':' + String(now.second());
+      logSD.println(timestamp);
       logSD.println(headerSD);
     }
     else if(serialComm == "dataoff")
@@ -323,6 +332,9 @@ void loop()
 
     if(logData == true)
     {
+      String dataSD;
+
+      // Find distance between starting and ending positions in microns
       int x1 = posX;
       int y1 = posY;      
       posX = sendCommand(portA, axisX, getPos, 0);
@@ -331,11 +343,9 @@ void loop()
       int y2 = posY - y1;
       float d = sqrt(x2*x2 - y2*y2) * umResolution;
 
-      dataSD += String(dx);
-      dataSD += " , ";
-      dataSD += String(dy);
-      dataSD += " , ";
-      dataSD += String(d);
+      // Assemble string and write to SD card
+      dataSD = String(dx);
+      dataSD += " , " + String(dy) + " , " + String(d);
       logSD.println(dataSD);      
     }
   }
