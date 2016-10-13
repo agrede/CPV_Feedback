@@ -64,9 +64,9 @@ String comm1;
 
 //////////////////// FEEDBACK VARIABLES //////////////////////////////////////////////////////////
 
-boolean enableCPV = true;    // Controls whether or not the CPV closed-loop optimization routine is running
+boolean enableCPV = false;    // Controls whether or not the CPV closed-loop optimization routine is running
 
-int voltage = 0;   //value read from transimpedance amp
+int voltage = 0;   // value read from transimpedance amp
 int previousVoltage = 0;  //trans amp value from previous iteration
 
 int dLay = 100;   //time between incremental movement and photodiode voltage read
@@ -112,7 +112,7 @@ const int chipSelect = 10;  // SD card shield
 
 File logSD;
 
-String headerSD = "  dX   ,   dY   ,   dist.  "; 
+String headerSD = "   voltage   ,   dX   ,   dY   ,   dist.  "; 
 
 float dx = 0;
 float dy = 0;
@@ -125,6 +125,8 @@ byte dpEnable[2] = {7, 2};
 /////////////////////// OBJECT DECLARATIONS //////////////////////////////////////////////////
 
 SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
+
+Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -178,6 +180,11 @@ void setup()
 
   //Start software serial connection with Zaber stages
   rs232a.begin(9600);
+
+  // begin communication with LCD
+  lcd.begin(16, 2);     // (columns, rows)
+  lcd.setBacklight(0x5);
+  
   delay(2000);
 }
 
@@ -344,8 +351,8 @@ void loop()
       float d = sqrt(x2*x2 - y2*y2) * umResolution;
 
       // Assemble string and write to SD card
-      dataSD = String(dx);
-      dataSD += " , " + String(dy) + " , " + String(d);
+      dataSD = String(voltage);
+      dataSD += " , " + String(dx) + " , " + String(dy) + " , " + String(d);
       logSD.println(dataSD);      
     }
   }
@@ -461,9 +468,12 @@ void optimize(int axis, long increment)
   int moves = 0; 
   // Get starting conditions before optimizing
   voltage = readAnalog(pinCPV, iter8); 
-  
-  if(logData == true)
-    Serial.println(voltage);
+
+  // Print voltage to LCD
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print((float(voltage)/1023.0) * 5.0);
+  lcd.print(" V");
 
   // Move one increment in + direction and get new voltage and position
   replyData = sendCommand(portA, axis, moveRel, increment);
@@ -471,9 +481,12 @@ void optimize(int axis, long increment)
   previousVoltage = voltage;
   delay(dLay);
   voltage = readAnalog(pinCPV, iter8);
-
-  if(logData == true)
-    Serial.println(voltage); 
+  
+  // Print voltage to LCD
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print((float(voltage)/1023.0) * 5.0);
+  lcd.print(" V");
   
   // Start optimizing along axis
   if(voltage > previousVoltage)         
@@ -484,10 +497,13 @@ void optimize(int axis, long increment)
         replyData = sendCommand(portA, axis, moveRel, increment);  
         moves++;      
         delay(dLay);
-        voltage = readAnalog(pinCPV, iter8);  
+        voltage = readAnalog(pinCPV, iter8);    
 
-        if(logData == true)
-          Serial.println(voltage);
+        // Print voltage to LCD
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print((float(voltage)/1023.0) * 5.0);
+        lcd.print(" V");
       }
       replyData = sendCommand(portA, axis, moveRel, (-1)*increment);
       moves++;
@@ -498,10 +514,13 @@ void optimize(int axis, long increment)
       replyData = sendCommand(portA, axis, moveRel, (-2)*increment);  
       moves += 2;  
       delay(dLay);
-      voltage = readAnalog(pinCPV, iter8);  
+      voltage = readAnalog(pinCPV, iter8); 
 
-      if(logData == true)
-          Serial.println(voltage);
+       // Print voltage to LCD
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print((float(voltage)/1023.0) * 5.0);
+      lcd.print(" V");
       
       while(voltage > previousVoltage)
       {
@@ -511,8 +530,11 @@ void optimize(int axis, long increment)
         delay(dLay);
         voltage = readAnalog(pinCPV, iter8); 
 
-        if(logData == true)
-          Serial.println(voltage);
+        // Print voltage to LCD
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print((float(voltage)/1023.0) * 5.0);
+        lcd.print(" V");
       }
       replyData = sendCommand(portA, axis, moveRel, increment);
       moves++;
