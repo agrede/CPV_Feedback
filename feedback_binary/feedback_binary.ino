@@ -17,7 +17,7 @@
 
 #include <Wire.h>
 
-#include "RTClib.h"
+#include <RTClib.h>
 
 #include <Adafruit_RGBLCDShield.h>
 
@@ -70,7 +70,7 @@ int voltage = 0;   // value read from transimpedance amp
 int previousVoltage = 0;  //trans amp value from previous iteration
 
 int dLay = 100;   //time between incremental movement and photodiode voltage read
-int iter8 = 500;   //number of reads the photodiode voltage is averaged over
+int iter8 = 5000;   //number of reads the photodiode voltage is averaged over
 
 // Period of feedback iterations
 int intervalCPV = 5000;
@@ -120,13 +120,13 @@ float dy = 0;
 unsigned int dpData;      // 10-bit value to be sent to the desired digital potentiometer
 
 byte dpCommand[2];    // [ MSByte , LSByte ]
-byte dpEnable[2] = {7, 2};
 
 /////////////////////// OBJECT DECLARATIONS //////////////////////////////////////////////////
 
 SoftwareSerial rs232a(RXpin, TXpin);   //RX, TX
 
 Adafruit_RGBLCDShield lcd = Adafruit_RGBLCDShield();
+RTC_PCF8523 rtc;
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -135,24 +135,12 @@ void setup()
   // Start the Arduino hardware serial port at 9600 baud
   Serial.begin(9600);
   Wire.begin();
-
-  // Enable digipot wiper to be controlled over I2C & sets wiper to lowest resistance setting
-  Wire.beginTransmission(0x2C);
-  Wire.write(dpEnable, 2);
-  Wire.write(byte(4));
-  Wire.write(byte(0));
-  Wire.endTransmission();
-  Wire.beginTransmission(0x2F);
-  Wire.write(dpEnable, 2);
-  Wire.write(byte(4));
-  Wire.write(byte(0));
-  Wire.endTransmission();
-
+  
     // Memory efficient version of pin initialization, for Mega2560 only
   DDRA |= B11111100;    // Sets Mega 2560 pins 24-29 as outputs
   PORTA = B00110000;    // Sets 26, 27 HIGH and 22-25, 28, 29 LOW
   
-  /*
+  
   // Initializes the proper pins as outputs and ensures that they are at logic low
   pinMode(resetCPV, OUTPUT);
   pinMode(resetPV, OUTPUT);
@@ -166,7 +154,6 @@ void setup()
   digitalWrite(cpvTIA, LOW);
   digitalWrite(pvSMU, LOW);
   digitalWrite(pvTIA, LOW);
-  */
   
   // Sets the stages to use binary protocol
   rs232a.begin(115200);
@@ -184,12 +171,40 @@ void setup()
   // begin communication with LCD
   lcd.begin(16, 2);     // (columns, rows)
   lcd.setBacklight(0x5);
+
+  //begin rtc
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+  }
+
+  if (! rtc.initialized()) {
+    Serial.println("RTC is NOT running!");
+    // following line sets the RTC to the date & time this sketch was compiled
+    // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  }
   
   delay(2000);
+  
+
+  // Enable digipot wiper to be controlled over I2C & sets wiper to lowest resistance setting
+  // Enable wiper register
+  Wire.beginTransmission(0x2F);
+  Wire.write(0b00011100);
+  Wire.write(0b00000010);
+  Wire.endTransmission();
+  Wire.beginTransmission(0x2C);
+  Wire.write(0b00011100);
+  Wire.write(0b00000010);
+  Wire.endTransmission();
+
 }
 
 void loop()
 {
+  DateTime now = rtc.now();
   // Serial commands to start/stop optimization, measure pyranometer voltage, and get the current position of the stages 
   if(Serial.available() > 0)
   {
@@ -294,6 +309,7 @@ void loop()
       comm1 = serialComm.substring(6);
       iter8 = comm1.toInt();
     }
+
     if(serialComm.substring(0, 5) == "setpv")
     {
       comm1 = serialComm.substring(6);
@@ -313,12 +329,92 @@ void loop()
       dpData = comm1.toInt();
 
       // Generating two bytes to be sent to the digipot shift register, MSByte first
-      dpCommand[0] = (1024 + dpData) >> 8;
-      dpCommand[1] = dpData & 255;
+      // dpCommand[0] = (1024 + dpData) >> 8;
+      // dpCommand[1] = dpData & 255;
 
       Wire.beginTransmission(0x2F);
-      Wire.write(dpCommand, 2);
-      Wire.endTransmission(); 
+      Wire.write(1<<2 | dpData>> 8);
+      Wire.write(dpData & 0xFF);
+      Wire.endTransmission();
+
+      Wire.beginTransmission(0x2F);
+      Wire.write(1<<3);
+      Wire.write(0);
+      Wire.endTransmission();
+
+      Wire.requestFrom(0x2F, 2);
+      while(Wire.available()) {
+        byte c = Wire.read();
+        Serial.print(c);
+      }
+      Serial.println("");
+    }
+    if(serialComm.substring(0, 4) == "set0")
+    {
+
+      // Generating two bytes to be sent to the digipot shift register, MSByte first
+      // dpCommand[0] = (1024 + dpData) >> 8;
+      // dpCommand[1] = dpData & 255;
+
+      Wire.beginTransmission(0x2F);
+      Wire.write(0b00000100);
+      Wire.write(0b00000000);
+      Wire.endTransmission();
+
+      Wire.beginTransmission(0x2F);
+      Wire.write(1<<3);
+      Wire.write(0);
+      Wire.endTransmission();
+
+      Wire.requestFrom(0x2F, 2);
+      while(Wire.available()) {
+        byte c = Wire.read();
+        Serial.print(c);
+        Serial.print("  ");
+      }
+      
+      Wire.beginTransmission(0x2F);
+      Wire.write(1<<5);
+      Wire.write(0);
+      Wire.endTransmission();
+
+      Wire.requestFrom(0x2F, 2);
+      while(Wire.available()) {
+        byte c = Wire.read();
+        Serial.print(c);
+        Serial.print("  ");
+      }
+      
+      Serial.println("  ");
+
+      Wire.beginTransmission(0x2C);
+      Wire.write(0b00000100);
+      Wire.write(0b00000000);
+      Wire.endTransmission();
+
+      Wire.beginTransmission(0x2C);
+      Wire.write(1<<3);
+      Wire.write(0);
+      Wire.endTransmission();
+
+      Wire.requestFrom(0x2C, 2);
+      while(Wire.available()) {
+        byte c = Wire.read();
+        Serial.print(c);
+        Serial.print("  ");
+      }
+      Wire.beginTransmission(0x2C);
+      Wire.write(1<<5);
+      Wire.write(0);
+      Wire.endTransmission();
+
+      Wire.requestFrom(0x2C, 2);
+      while(Wire.available()) {
+        byte c = Wire.read();
+        Serial.print(c);
+        Serial.print("  ");
+      }
+      Serial.println("  ");
     }
   }
 
